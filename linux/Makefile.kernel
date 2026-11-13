@@ -115,7 +115,7 @@ CONFIG_MAPS      := $(KERNEL_DIR)/arch/$(ARCH)/configs/axera_config_maps.txt
 PROJECT_MAK      := $(BUILD_PATH)/projects/$(PROJECT)/project.mak
 TEMP_DEFCONFIG   := $(KBUILD_OUTDIR)/$(PROJECT)_defconfig.tmp
 SRC_DEFCONFIG    := $(KERNEL_DIR)/arch/$(ARCH)/configs/$(CONFIG)
-BAK_DEFCONFIG    := $(KBUILD_OUTDIR)/$(CONFIG)
+BAK_DEFCONFIG    := $(KBUILD_OUTDIR)/$(CONFIG).bak
 SCRIPTS_PATH     := $(KERNEL_DIR)/scripts/axera
 GENERATED_PATH   := $(KBUILD_OUTDIR)/include/generated
 
