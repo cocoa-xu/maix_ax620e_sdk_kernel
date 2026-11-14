@@ -60,6 +60,10 @@ static void ax620x_smp_prepare_cpus(unsigned int max_cpus)
 	if (!cpus_inited)
 		return;
 
+	/* Leave the secondaries in the boot ROM pen: kexec can then hand them over. */
+	if (max_cpus <= 1 || num_possible_cpus() <= 1)
+		return;
+
 	cpus_release_vaddr = ioremap_nocache((phys_addr_t)cpus_release_paddr,
 											sizeof(phys_addr_t));
 	if (!cpus_release_vaddr) {
