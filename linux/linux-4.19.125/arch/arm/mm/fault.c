@@ -21,6 +21,7 @@
 #include <linux/highmem.h>
 #include <linux/perf_event.h>
 
+#include <asm/ax-mmiotrace.h>
 #include <asm/pgtable.h>
 #include <asm/system_misc.h>
 #include <asm/system_info.h>
@@ -555,6 +556,9 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 {
 	const struct fsr_info *inf = fsr_info + fsr_fs(fsr);
 	struct siginfo info;
+
+	if (ax_mmiotrace_fault(addr, fsr, regs))
+		return;
 
 	if (!inf->fn(addr, fsr & ~FSR_LNX_PF, regs))
 		return;

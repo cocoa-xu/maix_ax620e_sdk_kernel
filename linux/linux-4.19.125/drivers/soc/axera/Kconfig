@@ -52,6 +52,28 @@ config  AXERA_MEMORY_DUMP
 	help
 		This enable  AXERA_MEMORY_DUMP.
 
+config AX_MMIOTRACE
+	bool "Trace register accesses made through AX_OSAL ioremap"
+	depends on ARM && MMU && !ARM_LPAE
+	help
+	  Interposes on the AX_OSAL ioremap helpers so that register accesses
+	  of the media drivers can be trapped, emulated and logged through
+	  /proc/ax_mmiotrace. Nothing is trapped until tracing is switched on.
+
+config AX_MMIOTRACE_ARM_AT_BOOT
+	bool "Start tracing at boot"
+	depends on AX_MMIOTRACE
+
+config AX_MMIOTRACE_FILTER
+	string "Comma-separated owners to interpose (* for all)"
+	depends on AX_MMIOTRACE
+	default "*"
+
+config AX_MMIOTRACE_RECORDS
+	int "Trace buffer size in 32-byte records"
+	depends on AX_MMIOTRACE
+	default 1048576
+
 config  AX_GZIPD
 	tristate "AX GZIPD Driver"
 	help

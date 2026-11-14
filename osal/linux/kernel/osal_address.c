@@ -14,17 +14,20 @@
 #include <linux/uaccess.h>
 #include "osal_ax.h"
 #include "osal_dev_ax.h"
+#include <asm/ax-mmiotrace.h>
 
 void *AX_OSAL_DEV_ioremap(unsigned long phys_addr, unsigned long size)
 {
-	return ioremap(phys_addr, size);
+	return (void __force *)ax_mmiotrace_map(phys_addr, size, ioremap(phys_addr, size),
+						AX_MMIOTRACE_DEVICE, _RET_IP_);
 }
 
 EXPORT_SYMBOL(AX_OSAL_DEV_ioremap);
 
 void *AX_OSAL_DEV_ioremap_nocache(unsigned long phys_addr, unsigned long size)
 {
-	return ioremap_wc(phys_addr, size);
+	return (void __force *)ax_mmiotrace_map(phys_addr, size, ioremap_wc(phys_addr, size),
+						AX_MMIOTRACE_DEVICE_WC, _RET_IP_);
 }
 
 EXPORT_SYMBOL(AX_OSAL_DEV_ioremap_nocache);

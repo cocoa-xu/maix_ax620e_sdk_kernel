@@ -30,6 +30,7 @@
 #include <asm/cp15.h>
 #include <asm/cputype.h>
 #include <asm/cacheflush.h>
+#include <asm/ax-mmiotrace.h>
 #include <asm/early_ioremap.h>
 #include <asm/mmu_context.h>
 #include <asm/pgalloc.h>
@@ -448,6 +449,9 @@ void __iounmap(volatile void __iomem *io_addr)
 {
 	void *addr = (void *)(PAGE_MASK & (unsigned long)io_addr);
 	struct static_vm *svm;
+
+	if (ax_mmiotrace_unmap(io_addr))
+		return;
 
 	/* If this is a static mapping, we must leave it alone */
 	svm = find_static_vm_vaddr(addr);
