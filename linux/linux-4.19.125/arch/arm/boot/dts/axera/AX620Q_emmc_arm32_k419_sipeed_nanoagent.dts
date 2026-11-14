@@ -28,6 +28,10 @@
 			dump_ranges = <0x0 0x40000000 0x0 0x50000000>;
 			no-map;
 		};
+		bringup_log@55f00000 {
+			reg = <0x0 0x55f00000 0x0 0x100000>;
+			no-map;
+		};
 #ifdef SUPPORT_RECYCLE_CMM
 		cmm_reserved {
 			compatible = "axera, cmm_rec";
