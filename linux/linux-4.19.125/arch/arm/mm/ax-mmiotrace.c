@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/percpu.h>
 #include <linux/proc_fs.h>
 #include <linux/sched/clock.h>
 #include <linux/seq_file.h>
@@ -85,6 +86,7 @@ struct axmt_insn {
 
 static struct axmt_region regions[AXMT_MAX_REGIONS];
 static DEFINE_RAW_SPINLOCK(regions_lock);
+static DEFINE_PER_CPU(int, axmt_busy);
 static unsigned long bound_lo = ULONG_MAX;
 static unsigned long bound_hi;
 static int armed_regions;
@@ -543,9 +545,22 @@ static bool axmt_emulate(struct axmt_region *r, int idx, unsigned long far, stru
 	return true;
 }
 
+static int axmt_find_armed(unsigned long addr)
+{
+	int i;
+
+	for (i = 0; i < AXMT_MAX_REGIONS; i++) {
+		unsigned long fake = READ_ONCE(regions[i].fake);
+
+		if (READ_ONCE(regions[i].used) && READ_ONCE(regions[i].armed) &&
+		    addr >= fake && addr < fake + READ_ONCE(regions[i].size))
+			return i;
+	}
+	return -1;
+}
+
 bool ax_mmiotrace_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 {
-	struct axmt_region *r = NULL;
 	unsigned long flags;
 	int i;
 
@@ -553,18 +568,25 @@ bool ax_mmiotrace_fault(unsigned long addr, unsigned int fsr, struct pt_regs *re
 	    addr < READ_ONCE(bound_lo) || addr >= READ_ONCE(bound_hi))
 		return false;
 
-	raw_spin_lock_irqsave(&regions_lock, flags);
-	for (i = 0; i < AXMT_MAX_REGIONS; i++) {
-		if (regions[i].used && regions[i].armed && addr >= regions[i].fake &&
-		    addr < regions[i].fake + regions[i].size) {
-			r = &regions[i];
-			break;
-		}
+	/*
+	 * Emulation touches the real mapping and the trace buffer, both vmalloc
+	 * addresses that may need a lazy page-table sync. That nested abort must
+	 * go to the normal handler: this CPU already holds regions_lock.
+	 */
+	local_irq_save(flags);
+	if (__this_cpu_read(axmt_busy) || axmt_find_armed(addr) < 0) {
+		local_irq_restore(flags);
+		return false;
 	}
-	if (r && !axmt_emulate(r, i, addr, regs))
-		axmt_set_armed(r, false);
-	raw_spin_unlock_irqrestore(&regions_lock, flags);
-	return r != NULL;
+	__this_cpu_write(axmt_busy, 1);
+	raw_spin_lock(&regions_lock);
+	i = axmt_find_armed(addr);
+	if (i >= 0 && !axmt_emulate(&regions[i], i, addr, regs))
+		axmt_set_armed(&regions[i], false);
+	raw_spin_unlock(&regions_lock);
+	__this_cpu_write(axmt_busy, 0);
+	local_irq_restore(flags);
+	return i >= 0;
 }
 
 static void axmt_arm_all(bool arm)
@@ -642,12 +664,15 @@ static ssize_t axmt_control_write(struct file *file, const char __user *ubuf,
 
 		ret = kstrtouint(arg, 0, &n);
 		if (!ret && n) {
+			struct axmt_rec *old;
+
 			raw_spin_lock_irq(&ring_lock);
-			vfree(ring);
+			old = ring;
 			ring = NULL;
 			ring_len = 0;
 			ring_cap = n;
 			raw_spin_unlock_irq(&ring_lock);
+			vfree(old);
 		}
 	} else {
 		ret = -EINVAL;
